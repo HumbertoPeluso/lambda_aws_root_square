@@ -10,7 +10,9 @@ resource "aws_apigatewayv2_stage" "this" {
 }
 
 resource "aws_apigatewayv2_integration" "todos" {
-  for_each = local.lambdas
+  for_each = {
+    for k, v in local.lambdas : k => v if v.trigger == "api"
+  }
 
   api_id                 = aws_apigatewayv2_api.this.id
   integration_type       = "AWS_PROXY"
@@ -19,13 +21,15 @@ resource "aws_apigatewayv2_integration" "todos" {
   integration_uri        = aws_lambda_function.todos[each.key].invoke_arn
 }
 
- resource "aws_apigatewayv2_route" "todos" {
-  for_each = local.lambdas
+resource "aws_apigatewayv2_route" "todos" {
+  for_each = {
+    for k, v in local.lambdas : k => v if v.trigger == "api"
+  }
 
   api_id    = aws_apigatewayv2_api.this.id
-  route_key = "${upper(each.key.http_type)} /v1/todos"
+  route_key = "${upper(each.value.http_type)} /v1/todos/${each.key}"
   target    = "integrations/${aws_apigatewayv2_integration.todos[each.key].id}"
-} 
+}
 
 /* resource "aws_apigatewayv2_route" "todos_get_one" {
   api_id    = aws_apigatewayv2_api.this.id

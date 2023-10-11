@@ -44,16 +44,38 @@ resource "aws_lambda_function" "todos" {
   environment {
     variables = {
       // TABLE = aws_ssm_parameter.dynamodb_table.name
-      DEBUG = var.env
+      DEBUG         = var.env
+      SNS_TOPIC_ARN = aws_sns_topic.user_updates.arn
     }
   }
 }
 
 resource "aws_lambda_permission" "api" {
-  for_each = local.lambdas
+  for_each = {
+    for k, v in local.lambdas : k => v if v.trigger == "api"
+  }
 
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.todos[each.key].arn
   principal     = "apigateway.amazonaws.com"
   source_arn    = "arn:aws:execute-api:${var.aws_region}:${var.aws_account_id}:*/*"
+}
+
+resource "aws_lambda_permission" "allow_bucket" {
+  for_each = {
+    for k, v in local.lambdas : k => v if v.trigger == "s3"
+  }
+  statement_id  = "AllowExecutionFromS3Bucket"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.todos[each.key].arn
+  principal     = "s3.amazonaws.com"
+  source_arn    = aws_s3_bucket.s3-bucket.arn
+}
+
+resource "aws_lambda_permission" "allow_sns" {
+  statement_id  = "AllowExecutionFromSNS"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.todos["sns_s3_publish"].arn
+  principal     = "sns.amazonaws.com"
+  source_arn    = aws_sns_topic.user_updates.arn
 }

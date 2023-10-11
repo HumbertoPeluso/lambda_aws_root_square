@@ -21,3 +21,7 @@ variable "service_name" {
   type    = string
   default = "todos"
 }
+
+variable "email" {
+  type = string
+}
